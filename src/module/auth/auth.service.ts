@@ -1,0 +1,240 @@
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  InternalServerErrorException,
+  NotFoundException,
+  BadRequestException
+} from '@nestjs/common';
+import {
+  ChangePasswordDto,
+  LoginDto,
+  RegisterDto,
+  RequestResetCodeDto,
+  ResetPasswordDto,
+  VerifyResetCodeDto,
+} from './dto/create-auth.dto';
+import { PrismaService } from '../../prisma/prisma.service';
+import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
+import { UserRole, UserStatus } from '@prisma/client';
+import {generateOtpCode,hashOtpCode} from '../../utils/generateOtpCode';
+import { MailerService } from '@nestjs-modules/mailer';
+export interface AuthResponse {
+  accessToken: string;
+  user: {
+    id: string;
+    email: string;
+    role: UserRole;
+  };
+}
+
+@Injectable()
+export class AuthService {
+  constructor(
+    private prisma: PrismaService,
+    private jwtService: JwtService,
+    private mailerService: MailerService,
+  ) {}
+
+  async register(dto: RegisterDto){
+    const existingUser = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (existingUser) {
+      throw new ConflictException('User with this email already exists.');
+    }
+    if(dto.password !== dto.confirmPassword){
+      throw new BadRequestException('Password not match.');
+    }
+    const hashedPassword = await bcrypt.hash(dto.password, parseInt(process.env.SALT_ROUND!));
+    const payload = {
+      email: dto.email,
+      password: hashedPassword,
+      firstName: dto.firstName,
+      lastName: dto.lastName ?? null,
+      phone: dto.phone ?? null,
+      profileImage: dto.profileImage ?? null,
+      role: UserRole.USER,
+      is2FAEnabled: dto.is2FAEnabled ?? false,
+      twoFactorSecret: null,
+      passwordResetToken: null,
+      passwordResetExpires: null,
+    };
+    try {
+      const user = await this.prisma.user.create({ data: payload });
+
+      // sanitize sensitive fields before returning
+      const { password, twoFactorSecret, passwordResetToken, passwordResetExpires, ...safeUser } = user;
+      return safeUser;
+    } catch (err) {
+      console.error("err------>",err);
+      // Optional: log err with logger
+      throw new InternalServerErrorException('Failed to create user.',err);
+    }
+  }
+
+  async login(dto: LoginDto) {
+    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials.');
+    }
+
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException(
+        'Your account is currently inactive.'
+      );
+    }
+
+    const isPasswordValid = await bcrypt.compare(dto.password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials.');
+    }
+
+    // Update lastLogin AFTER successful authentication
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLogin: new Date() },
+    });
+
+    // Prepare common payload fields
+    const payloadBase = {
+      sub: user.id,
+      email: user.email,
+      role: user.role
+    };
+
+    // If the user has 2FA enabled, issue a short-lived temp token and require OTP
+    if (user.is2FAEnabled) {
+      const tempToken = this.jwtService.sign(
+        { ...payloadBase, tf: false }, // tf=false indicates 2FA not yet completed
+        {
+          secret: process.env.JWT_SECRET,
+          expiresIn: process.env.TEMP_JWT_EXPIRES_IN ?? '5m', // very short
+        },
+      );
+
+      return {
+        twoFactorRequired: true,
+        tempToken,
+      };
+    }
+
+    // Otherwise issue full access token
+    const accessToken = this.jwtService.sign(
+      { ...payloadBase, tf: true }, // tf=true indicates 2FA satisfied (or not required)
+      {
+        secret: process.env.JWT_SECRET,
+        expiresIn: process.env.JWT_EXPIRES_IN ?? '1h',
+      },
+    );
+
+    // Optional: create refresh token (recommended)
+    // const refreshToken = this.jwtService.sign(
+    //   { ...payloadBase, tf: true },
+    //   { secret: process.env.JWT_REFRESH_SECRET, expiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d' }
+    // );
+
+    // Sanitize user object before returning
+    const { password, twoFactorSecret, passwordResetToken, passwordResetExpires, ...safeUser } = user;
+
+    return {
+      accessToken,
+      //refreshToken,
+      user: safeUser,
+    };
+  }
+
+// change password
+  async changePassword(email: string, dto: ChangePasswordDto) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user || !user.password) {
+      throw new NotFoundException('User not found');
+    }
+
+    const isMatch = await bcrypt.compare(dto.oldPassword, user.password);
+    if (!isMatch) {
+      throw new BadRequestException('Old password is incorrect');
+    }
+    const hashed = await bcrypt.hash(dto.newPassword, parseInt(process.env.SALT_ROUND!) );
+    await this.prisma.user.update({
+      where: { email },
+      data: { password: hashed },
+    });
+
+    return { message: 'Password changed successfully' };
+  }
+
+  // forget and reset password
+  async requestResetCode(dto: RequestResetCodeDto) {
+    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const code = generateOtpCode();
+    console.log("code----->", code);
+    const hashedCode = await hashOtpCode(code);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    await this.prisma.user.update({where:{email:dto.email},data: { passwordResetToken: hashedCode ,passwordResetExpires: expiresAt }});
+
+
+    await this.mailerService.sendMail({
+      to: dto.email,
+      subject: 'Reset Password Code',
+      text: `Your OTP code is ${code}. It will expire in 5 minutes.`,
+    });
+    return { message: 'Reset code sent' };
+  }
+
+  async verifyResetCode(dto: VerifyResetCodeDto) {
+    const otpRecord = await this.prisma.user.findFirst({
+      where: { email: dto.email, verified: false, passwordResetToken: { not: null } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (
+      !otpRecord ||
+      !otpRecord.passwordResetExpires ||
+      otpRecord.passwordResetExpires < new Date()
+    ) {
+      throw new BadRequestException('Invalid or expired code');
+    }
+
+    // Non-null assertion fixes TS error
+    const isValid = await bcrypt.compare(dto.code, otpRecord.passwordResetToken!);
+    if (!isValid) {
+      throw new BadRequestException('Incorrect code');
+    }
+
+    await this.prisma.user.update({
+      where: { email: dto.email },
+      data: {
+        verified: true,
+        passwordResetToken: null,
+        passwordResetExpires: null,
+      },
+    });
+
+    return { message: 'OTP verified successfully' };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    if (dto.password !== dto.confirmPassword) {
+      throw new BadRequestException("Passwords don't match");
+    }
+
+    const verified = await this.prisma.user.findFirst({
+      where: { email: dto.email, verified: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!verified) {
+      throw new BadRequestException('OTP not verified');
+    }
+
+    const hashed = await bcrypt.hash(dto.password, parseInt(process.env.SALT_ROUND!));
+    await this.prisma.user.update({
+      where: { email: dto.email },
+      data: { password: hashed,verified:false },
+    });
+    return { message: 'Password reset successful' };
+  }
+}
