@@ -1,0 +1,13 @@
+model WatchHistory {
+  id              String  @id @default(uuid())
+  userId          String
+  user            User    @relation(fields: [userId], references: [id])
+  contentId       String
+  content         Content @relation(fields: [contentId], references: [id])
+  progressSeconds Int
+
+  lastWatchedAt DateTime @default(now())
+
+  @@unique([userId, contentId]) // A user can only have one history record per content item
+  @@map("watch_history")
+}

@@ -8,7 +8,6 @@ import {
   Res,
   UseGuards,
   HttpStatus,
-  Post,
   Delete,
 } from '@nestjs/common';
 import { UserService } from './user.service';
@@ -27,11 +26,7 @@ import { Roles } from '../auth/guards/roles.decorator';
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
-  // @ApiOperation({ summary: 'Register as a user' })
-  // @Post()
-  // create(@Body() dto: CreateUserDto) {
-  //   return this.userService.create(dto);
-  // }
+
   @ApiOperation({ summary: 'Get all Users' })
   @Get()
   async findAll(@Req() req: RequestWithUser,@Res() res: Response) {

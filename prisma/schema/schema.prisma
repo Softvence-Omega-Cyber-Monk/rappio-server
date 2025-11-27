@@ -9,3 +9,87 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// ----------------------------------------------------
+// ENUMS (Structured Data Definitions)
+// ----------------------------------------------------
+// User account status
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPEND
+}
+
+// User role for authorization and feature access
+enum UserRole {
+  ADMIN // Full system access, platform-wide controls
+  CREATOR // Manages a Channel, uploads/streams content
+  USER // Standard viewer/subscriber
+}
+
+// Subscription status, integrated with the billing system
+enum SubscriptionStatus {
+  ACTIVE // User is currently paid up
+  GRACE_PERIOD // Paid period ended, access until the next billing date
+  CANCELED // Subscription has fully lapsed
+  FREE_TIER // Default status for non-paying users
+  PAST_DUE // Payment failed, in a temporary retry period
+}
+
+// Type of media content on the platform
+enum ContentType {
+  VOD // Video On Demand (pre-recorded, uploaded content)
+  LIVE_STREAM // Real-time broadcast
+}
+
+// Workflow status for media content processing (VOD ingestion pipeline)
+enum ContentStatus {
+  PROCESSING // Video is being transcoded or ingested (Internal state)
+  AVAILABLE // Ready for playback (Public state)
+  FAILED // Transcoding or ingest failed
+  PRIVATE // Available but not publicly listed
+  ARCHIVED // Old live stream recording
+}
+
+/**
+ * // ----------------------------------------------------
+ * // CHAT MODELS (New for Live Stream Chat)
+ * // ----------------------------------------------------
+ * // 8. Chat Room Model (Represents a single chat associated with a live stream/channel)
+ * model ChatRoom {
+ * id        String    @id @default(uuid())
+ * channelId String    @unique // A channel hosts one chat room
+ * channel   Channel   @relation(fields: [channelId], references: [id])
+ * isActive  Boolean   @default(false) // Set to true when the stream is live
+ * createdAt DateTime @default(now())
+ * updatedAt DateTime @updatedAt
+ * messages     ChatMessage[]
+ * participants ChatParticipant[]
+ * @@map("chat_rooms")
+ * }
+ * // 9. Chat Message Model (Individual messages sent in the room)
+ * model ChatMessage {
+ * id        String   @id @default(uuid())
+ * roomId    String
+ * room      ChatRoom @relation(fields: [roomId], references: [id])
+ * userId    String
+ * user      User     @relation(fields: [userId], references: [id])
+ * content   String   // The message text
+ * createdAt DateTime @default(now())
+ * @@index([roomId]) // To efficiently retrieve messages for a specific room
+ * @@map("chat_messages")
+ * }
+ * // 10. Chat Participant Model (Tracks users currently in the chat room - useful for moderation/metrics)
+ * model ChatParticipant {
+ * id        String   @id @default(uuid())
+ * roomId    String
+ * room      ChatRoom @relation(fields: [roomId], references: [id])
+ * userId    String
+ * user      User     @relation(fields: [userId], references: [id])
+ * // Tracking join/leave times
+ * joinedAt  DateTime @default(now())
+ * leftAt    DateTime?
+ * @@unique([roomId, userId])
+ * @@map("chat_participants")
+ * }
+ */

@@ -1,0 +1,19 @@
+model Channel {
+  id               String   @id @default(uuid())
+  ownerId          String   @unique
+  owner            User     @relation(fields: [ownerId], references: [id])
+  handle           String   @unique // e.g., @techguru (used for public URL)
+  name             String
+  description      String?
+  streamKey        String   @unique // Unique key for OBS authentication (Crucial for Live Streaming)
+  lastHandleUpdate DateTime @default(now()) // For enforcing the 30-day change limit on handle changes
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  content Content[]
+  follow  Follow[]  @relation("Following")
+
+  @@map("channels")
+}
