@@ -22,7 +22,7 @@ import { UpdateChannelDto } from './dto/update-channel.dto';
 import { GetMe } from '../user/dto/request-with-user.interface';
 import { ApiTags } from '@nestjs/swagger';
 
-@ApiTags('Only for CREATOR user Creator Channel Management')
+@ApiTags('Only for CREATOR user Channel Management')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles(UserRole.CREATOR)
 @Controller('creator/channel')
