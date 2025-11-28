@@ -14,7 +14,7 @@ import { UserService } from './user.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '@prisma/client';
-import { RequestWithUser } from './dto/request-with-user.interface';
+import { GetMe, RequestWithUser } from './dto/request-with-user.interface';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Request, Response } from 'express';
 import sendResponse from '../../utils/sendResponse';
@@ -39,7 +39,23 @@ export class UserController {
     });
   }
 
-
+  // STATIC route first
+  @UseGuards(JwtAuthGuard)
+  @Get('get-me')
+  @ApiOperation({
+    summary: 'Retrieve the profile of the authenticated user.',
+    description:
+      'Returns the full profile details of the currently logged-in user based on the JWT token.',
+  })
+  getMe(@Req() req: GetMe, @Res() res: Response) {
+    const user = req.user;
+    return sendResponse(res, {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'GetME Retrieve successfully.',
+      data: user,
+    });
+  }
   @Get(':id')
   @ApiOperation({ summary: 'Retrieve User by ID' })
   @ApiResponse({ status: 200, description: 'The requested User.' })

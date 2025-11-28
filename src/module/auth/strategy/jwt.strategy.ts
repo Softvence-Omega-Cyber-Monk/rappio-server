@@ -20,20 +20,33 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // Optionally validate that user still exists / is active
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        // any other fields you want in request.user
+      include: {
+        channel: true,
+        follow: true,
+        watchHistory: true,
+        userNotificationPreference: true,
+        notification: true,
+        chatMessage: true,
+        participants: true,
       },
     });
     if (!user) {
       return null; // fail auth
     }
 
-    // attach user to request (req.user), used by Guards/Controllers
-    return user;
+    // Remove sensitive fields before returning to req.user
+    // (Prisma returned the password and secrets if present)
+    // we can add more keys here to exclude as needed
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const {
+      password,
+      twoFactorSecret,
+      passwordResetToken,
+      passwordResetExpires,
+      ...safeUser
+    } = user;
+
+    // safeUser is now attached to req.user
+    return safeUser;
   }
 }
