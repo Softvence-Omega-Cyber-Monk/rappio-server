@@ -1,0 +1,13 @@
+model ChatParticipant {
+  id       String    @id @default(uuid())
+  // Tracking join/leave times
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
+
+  roomId String
+  room   ChatRoom @relation(fields: [roomId], references: [id])
+  userId String
+  user   User     @relation(fields: [userId], references: [id])
+
+  @@map("chat_participants")
+}

@@ -11,6 +11,7 @@ model Content {
   thumbnailUrl    String?
   views           Int           @default(0)
   isPremium       Boolean       @default(false) // Gated content
+  r2ObjectKey     String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

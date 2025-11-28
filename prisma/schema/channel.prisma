@@ -12,8 +12,9 @@ model Channel {
   updatedAt DateTime @updatedAt
 
   // Relations
-  content Content[]
-  follow  Follow[]  @relation("Following")
+  content  Content[]
+  follow   Follow[]   @relation("Following")
+  chatRoom ChatRoom[]
 
   @@map("channels")
 }

@@ -1,0 +1,117 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Delete,
+  Req,
+  UseGuards,
+  HttpStatus,
+  Res,
+} from '@nestjs/common';
+import { FollowService } from './follow.service';
+import { RequestWithUser } from '../user/dto/request-with-user.interface';
+import { ApiOperation } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Response } from 'express';
+import sendResponse from '../../utils/sendResponse';
+
+@Controller('follow')
+export class FollowController {
+  constructor(private readonly followService: FollowService) {}
+
+  @ApiOperation({ summary: 'Follow a channel by its handle' })
+  @UseGuards(JwtAuthGuard)
+  @Post(':handle')
+  async follow(
+    @Param('handle') handle: string,
+    @Req() req: RequestWithUser,
+    @Res() res: Response,
+  ) {
+    const data = await this.followService.followChannel(req.user.id, handle);
+    return sendResponse(res, {
+      statusCode: HttpStatus.CREATED,
+      success: true,
+      message: 'Channel followed successfully.',
+      data,
+    });
+  }
+
+  @ApiOperation({ summary: 'Check if the authenticated user follows this channel' })
+  @UseGuards(JwtAuthGuard)
+  @Get(':handle/status')
+  async status(
+    @Param('handle') handle: string,
+    @Req() req: RequestWithUser,
+    @Res() res: Response,
+  ) {
+    const data = await this.followService.isFollowing(req.user.id, handle);
+    return sendResponse(res, {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Follow status retrieved successfully.',
+      data,
+    });
+  }
+
+  @ApiOperation({ summary: 'Get all channels the user follows' })
+  @UseGuards(JwtAuthGuard)
+  @Get('/me/list')
+  async getMyFollows(@Req() req: RequestWithUser, @Res() res: Response) {
+    const data = await this.followService.getFollowedChannels(req.user.id);
+    return sendResponse(res, {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Followed channels retrieved successfully.',
+      data,
+    });
+  }
+
+  @ApiOperation({ summary: 'Get all followers of the specified channel' })
+  @Get(':handle/followers')
+  async getFollowers(
+    @Param('handle') handle: string,
+    @Res() res: Response,
+  ) {
+    const data = await this.followService.getFollowers(handle);
+    return sendResponse(res, {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Followers retrieved successfully.',
+      data,
+    });
+  }
+
+  @ApiOperation({ summary: 'Unfollow a channel by its handle' })
+  @UseGuards(JwtAuthGuard)
+  @Delete(':handle')
+  async unfollow(
+    @Param('handle') handle: string,
+    @Req() req: RequestWithUser,
+    @Res() res: Response,
+  ) {
+    await this.followService.unfollowChannel(req.user.id, handle);
+    return sendResponse(res, {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Channel unfollowed successfully.',
+      data: {},
+    });
+  }
+
+  @ApiOperation({ summary: 'Get total follower count by channel ID' })
+  @Get('count/:channelId')
+  async getFollowerCount(
+    @Param('channelId') channelId: string,
+    @Res() res: Response,
+  ) {
+    const data = await this.followService.getFollowerCount(channelId);
+
+    return sendResponse(res, {
+      statusCode: HttpStatus.OK,
+      success: true,
+      message: 'Follower count retrieved successfully.',
+      data,
+    });
+  }
+}

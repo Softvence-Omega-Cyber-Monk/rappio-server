@@ -51,6 +51,12 @@ enum ContentStatus {
   ARCHIVED // Old live stream recording
 }
 
+enum NotificationType {
+  CHANNEL_LIVE
+  NEW_VIDEO
+  ANNOUNCEMENT
+}
+
 /**
  * // ----------------------------------------------------
  * // CHAT MODELS (New for Live Stream Chat)

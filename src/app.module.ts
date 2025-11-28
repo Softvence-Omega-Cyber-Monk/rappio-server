@@ -7,6 +7,8 @@ import { UserModule } from './module/user/user.module';
 import { AuthModule } from './module/auth/auth.module';
 import { MailModule } from './module/mail/mail.module';
 import { MailerModule } from '@nestjs-modules/mailer';
+import { FollowModule } from './module/follow/follow.module';
+import { ChannelModule } from './module/channel/channel.module';
 
 @Module({
   imports: [
@@ -36,6 +38,8 @@ import { MailerModule } from '@nestjs-modules/mailer';
       UserModule,
       AuthModule,
       MailModule,
+      FollowModule,
+      ChannelModule,
    
   ],
   controllers: [AppController],

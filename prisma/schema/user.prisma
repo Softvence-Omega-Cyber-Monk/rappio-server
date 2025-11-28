@@ -27,6 +27,8 @@ model User {
   watchHistory               WatchHistory[]
   userNotificationPreference UserNotificationPreference?
   notification               Notification[]
+  chatMessage                ChatMessage[]
+  participants               ChatParticipant[]
 
   @@map("users")
 }
