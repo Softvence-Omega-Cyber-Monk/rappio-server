@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable,UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, ExtractJwt } from 'passport-jwt';
 import {jwtConstants} from '../../../common/jwt.constants';
@@ -31,7 +31,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       },
     });
     if (!user) {
-      return null; // fail auth
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (user.status !== 'ACTIVE') {
+      throw new UnauthorizedException('User is inactive');
     }
 
     // Remove sensitive fields before returning to req.user
