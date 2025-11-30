@@ -80,6 +80,9 @@ export class WatchHistoryService {
 
 
   async findOne(id: string) {
+    if(!id) {
+      throw new NotFoundException('WatchHistory ID not found');
+    }
     const record = await this.prisma.watchHistory.findUnique({
       where: { id },
       include: {
@@ -107,6 +110,9 @@ export class WatchHistoryService {
 
   async update(id: string, dto: UpdateWatchHistoryDto) {
     // ensure exists
+    if(!id) {
+      throw new NotFoundException('WatchHistory ID not found');
+    }
     const exists = await this.prisma.watchHistory.findUnique({ where: { id } });
     if (!exists) throw new NotFoundException('WatchHistory not found');
 
@@ -125,6 +131,9 @@ export class WatchHistoryService {
 
   async remove(id: string) {
     // ensure exists
+    if(!id) {
+      throw new NotFoundException('WatchHistory ID not found');
+    }
     const exists = await this.prisma.watchHistory.findUnique({ where: { id } });
     if (!exists) throw new NotFoundException('WatchHistory not found');
 
