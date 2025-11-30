@@ -23,7 +23,7 @@ import { ApiOperation } from '@nestjs/swagger';
 @Controller('content')
 export class ContentController {
   constructor(private readonly contentService: ContentService) {}
-  @ApiOperation({ summary: '' })
+  @ApiOperation({ summary: 'Create new content for a channel' })
   @Post()
   async create(@Body() dto: CreateContentDto, @Res() res: Response) {
     const data = await this.contentService.create(dto);
@@ -34,7 +34,7 @@ export class ContentController {
       data,
     });
   }
-
+  @ApiOperation({ summary: 'List contents (supports filtering, search and pagination)' })
   @Get()
   async findAll(@Query() query: QueryContentDto, @Res() res: Response) {
     const data = await this.contentService.findAll(query);
@@ -45,7 +45,7 @@ export class ContentController {
       data,
     });
   }
-
+  @ApiOperation({ summary: 'Get a single content item by its ID' })
   @Get(':id')
   async findOne(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
     const data = await this.contentService.findOne(id);
@@ -56,7 +56,7 @@ export class ContentController {
       data,
     });
   }
-
+  @ApiOperation({ summary: 'Update content by its ID (partial updates supported)' })
   @Patch(':id')
   async update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateContentDto, @Res() res: Response) {
     const data = await this.contentService.update(id, dto);
@@ -68,6 +68,7 @@ export class ContentController {
     });
   }
 
+  @ApiOperation({ summary: 'Delete content by its ID' })
   @Delete(':id')
   @HttpCode(204)
   async remove(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
@@ -81,6 +82,7 @@ export class ContentController {
   }
 
   // optional route to increment views
+  @ApiOperation({ summary: 'Increment view count for a content item (idempotent endpoint for tracking views)' })
   @Post(':id/views')
   @HttpCode(200)
   incrementViews(@Param('id', ParseUUIDPipe) id: string) {
