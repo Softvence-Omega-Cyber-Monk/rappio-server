@@ -12,6 +12,8 @@ import { ChannelModule } from './module/channel/channel.module';
 import { ContentModule } from './module/content/content.module';
 import { WatchHistoryModule } from './module/watch-history/watch-history.module';
 import { UserNotificationPreferenceModule } from './module/user-notification-preference/user-notification-preference.module';
+import { NotificationModule } from './module/notification/notification.module';
+import { SeederService } from './seeder/seeder.service';
 
 @Module({
   imports: [
@@ -46,9 +48,10 @@ import { UserNotificationPreferenceModule } from './module/user-notification-pre
       ContentModule,
       WatchHistoryModule,
       UserNotificationPreferenceModule,
+      NotificationModule,
    
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService,SeederService],
 })
 export class AppModule {}
