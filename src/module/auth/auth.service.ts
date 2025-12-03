@@ -20,14 +20,6 @@ import * as bcrypt from 'bcrypt';
 import { UserRole, UserStatus } from '@prisma/client';
 import {generateOtpCode,hashOtpCode} from '../../utils/generateOtpCode';
 import { MailerService } from '@nestjs-modules/mailer';
-export interface AuthResponse {
-  accessToken: string;
-  user: {
-    id: string;
-    email: string;
-    role: UserRole;
-  };
-}
 
 @Injectable()
 export class AuthService {
@@ -142,6 +134,55 @@ export class AuthService {
       //refreshToken,
       user: safeUser,
     };
+  }
+// add inside AuthService class (place anywhere among other methods)
+  async validateToken(token: string, require2FA = true) {
+    try {
+      console.log('validateToken-------------->',token);
+      // 1. Verify and decode token
+      // FIX: Use the injected JwtService instance without explicitly providing a secret.
+      const payload: any = this.jwtService.verify(token);
+
+      console.log('payload------------->', payload);
+      const userId = payload?.sub;
+      console.log('userId------------->', userId);
+      if (!userId) return null;
+
+      // 2. Check 2FA flag if required for WS connections
+      if (require2FA && payload.tf !== true) {
+        return null;
+      }
+
+      // 3. Fetch user (minimum data needed for security check)
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          status: true,
+          password: true,
+          twoFactorSecret: true,
+          passwordResetToken: true,
+          passwordResetExpires: true,
+        },
+      });
+
+      if (!user) return null;
+
+      // 4. Ensure user is active
+      if (user.status !== UserStatus.ACTIVE) return null;
+
+      // 5. Sanitize sensitive fields and return
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { password, twoFactorSecret, passwordResetToken, passwordResetExpires, ...safeUser } = user;
+
+      //console.log('validateToken -> safeUser:', safeUser);
+      return safeUser;
+    } catch (err) {
+      // Invalid signature, expired token, etc.
+      return null;
+    }
   }
 
 // change password
