@@ -13,7 +13,7 @@ export class WsAuthGuard implements CanActivate {
 
     // Preferred: token in handshake.auth (Socket.IO v4)
     const authToken = client.handshake?.auth?.token;
-    console.log("authToken---------------->", authToken);
+    console.log("[ws-auth.guard] authToken---------------->", authToken);
     // Fallback: token in query (older clients)
     const queryToken = client.handshake?.query?.token;
     const rawToken = typeof authToken === 'string' ? authToken : (typeof queryToken === 'string' ? queryToken : null);

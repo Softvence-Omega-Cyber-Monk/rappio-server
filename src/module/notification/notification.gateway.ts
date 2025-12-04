@@ -31,7 +31,8 @@ export class NotificationGateway implements OnGatewayConnection, OnGatewayDiscon
     const token = client.handshake?.auth?.token ?? client.handshake?.query?.token;
     if (!token || typeof token !== 'string') {
       this.logger.warn(`No token provided - disconnecting socket ${client.id}`);
-      client.emit('connect_error', { message: 'Unauthorized' }); // optional client-side info
+      // FIX 1: Change reserved 'connect_error' to custom 'auth_error'
+      client.emit('auth_error', { message: 'Unauthorized: No token provided' });
       client.disconnect(true);
       return;
     }
@@ -43,8 +44,9 @@ export class NotificationGateway implements OnGatewayConnection, OnGatewayDiscon
     this.logger.debug('handleConnection validated user: ' + JSON.stringify(user ?? null));
 
     if (!user || !user.id) {
-      this.logger.warn(`Invalid token for socket ${client.id} - disconnecting`);
-      client.emit('connect_error', { message: 'Unauthorized' });
+      this.logger.warn(`Invalid token for socket ${client?.id} - disconnecting`);
+      // FIX 2: Change reserved 'connect_error' to custom 'auth_error'
+      client.emit('auth_error', { message: 'Unauthorized: Invalid token' });
       client.disconnect(true);
       return;
     }
@@ -61,8 +63,9 @@ export class NotificationGateway implements OnGatewayConnection, OnGatewayDiscon
   }
 
   async handleDisconnect(client: Socket) {
+    // If client.data.user is set, the user was authenticated. If not, it means the disconnect happened before or during validation.
     const user = client.data?.user;
-    this.logger.log(`Socket disconnected: ${client.id} | User=${user?.id ?? 'unknown'}`);
+    this.logger.log(`Socket disconnected: ${client.id} | User=${user?.id ?? 'UNAUTHORIZED'}`);
   }
 
   getUserRoom(userId: string) {

@@ -138,14 +138,10 @@ export class AuthService {
 // add inside AuthService class (place anywhere among other methods)
   async validateToken(token: string, require2FA = true) {
     try {
-      console.log('validateToken-------------->',token);
       // 1. Verify and decode token
-      // FIX: Use the injected JwtService instance without explicitly providing a secret.
       const payload: any = this.jwtService.verify(token);
 
-      console.log('payload------------->', payload);
       const userId = payload?.sub;
-      console.log('userId------------->', userId);
       if (!userId) return null;
 
       // 2. Check 2FA flag if required for WS connections
@@ -173,14 +169,12 @@ export class AuthService {
       // 4. Ensure user is active
       if (user.status !== UserStatus.ACTIVE) return null;
 
-      // 5. Sanitize sensitive fields and return
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password, twoFactorSecret, passwordResetToken, passwordResetExpires, ...safeUser } = user;
 
-      //console.log('validateToken -> safeUser:', safeUser);
       return safeUser;
     } catch (err) {
-      // Invalid signature, expired token, etc.
+      console.error("err------>",err);
       return null;
     }
   }
