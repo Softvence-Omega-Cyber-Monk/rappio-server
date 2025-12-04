@@ -15,11 +15,15 @@ import { UpdateUserNotificationPreferenceDto } from './dto/update-user-notificat
 import { Request, Response } from 'express';
 import sendResponse from '../../utils/sendResponse';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { NotificationService } from '../notification/notification.service';
 
 @ApiTags('User Notification Preferences')
 @Controller('user-notification-preference')
 export class UserNotificationPreferenceController {
-  constructor(private readonly userNotificationPreferenceService: UserNotificationPreferenceService) {}
+  constructor(
+    private readonly notificationService: NotificationService,
+    private readonly userNotificationPreferenceService: UserNotificationPreferenceService
+  ) {}
 
   @Post(':userId')
   @ApiOperation({ summary: 'Create user notification preferences for a specific user' })

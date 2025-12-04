@@ -1,81 +1,79 @@
 import {
   WebSocketGateway,
   WebSocketServer,
+  OnGatewayInit,
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import * as jwt from 'jsonwebtoken';
 
-import { PrismaService } from '../../prisma/prisma.service';
-import { AuthService } from '../auth/auth.service';
+interface JwtPayload {
+  sub?: string;
+  id?: string;
+  [key: string]: any;
+}
 
-@WebSocketGateway({
-  namespace: '/ws/notifications',
-  cors: { origin: '*' },
-})
-export class NotificationGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  @WebSocketServer() server: Server;
-  private logger = new Logger('NotificationGateway');
+//@WebSocketGateway({ namespace: '/ws/notifications', cors: { origin: '*' } })
+@WebSocketGateway( {namespace: '/ws/notifications', cors: { origin: '*' } })
+export class NotificationGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+  @WebSocketServer()
+  public server: Server;
 
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly authService: AuthService,
-  ) {}
+  private readonly logger = new Logger(NotificationGateway.name);
 
-  async handleConnection(client: Socket) {
-    // debug: show handshake
-    this.logger.debug(`handleConnection client.handshake.auth: ${JSON.stringify(client.handshake.auth ?? {})}`);
+  afterInit(server: Server) {
+    this.logger.log('Notification gateway initialized');
 
-    // extract token (auth preferred)
-    const token = client.handshake?.auth?.token ?? client.handshake?.query?.token;
-    if (!token || typeof token !== 'string') {
-      this.logger.warn(`No token provided - disconnecting socket ${client.id}`);
-      // FIX 1: Change reserved 'connect_error' to custom 'auth_error'
-      client.emit('auth_error', { message: 'Unauthorized: No token provided' });
-      client.disconnect(true);
-      return;
+    // middleware to validate JWT and attach userId to socket.data
+    server.use((socket: Socket, next) => {
+      try {
+        const token = socket.handshake.auth?.token;
+        console.log("NotificationGateway token--------------------->", token);
+        if (!token) return next(); // allow anonymous
+
+        const secret = process.env.JWT_SECRET;
+        if (!secret) throw new Error('JWT_SECRET is not defined');
+
+        // jwt.verify can return string | object, cast to JwtPayload
+        const payload = jwt.verify(token, secret) as JwtPayload;
+
+        socket.data.userId = payload.sub ?? payload.id ?? null;
+
+        return next();
+      } catch (err) {
+        this.logger.warn('WebSocket auth failed', err);
+        // uncomment to reject unauthorized
+        // return next(new Error('unauthorized'));
+        return next();
+      }
+    });
+  }
+
+  handleConnection(socket: Socket) {
+    const userId = socket.data.userId as string | undefined;
+    if (userId) {
+      const room = `user:${userId}`;
+      socket.join(room);
+      this.logger.log(`Socket ${socket.id} connected and joined ${room}`);
+    } else {
+      this.logger.log(`Socket ${socket.id} connected (unauthenticated)`);
     }
-
-    // validate token using your AuthService helper
-    const user = await this.authService.validateToken(token);
-
-    // debug log validated user
-    this.logger.debug('handleConnection validated user: ' + JSON.stringify(user ?? null));
-
-    if (!user || !user.id) {
-      this.logger.warn(`Invalid token for socket ${client?.id} - disconnecting`);
-      // FIX 2: Change reserved 'connect_error' to custom 'auth_error'
-      client.emit('auth_error', { message: 'Unauthorized: Invalid token' });
-      client.disconnect(true);
-      return;
-    }
-
-    // attach sanitized user object to socket.data for later use
-    client.data.user = user;
-
-    this.logger.log(`Socket connected: ${client.id} | User=${user.id} (${user.email})`);
-
-    // join user's private room
-    const roomName = this.getUserRoom(user.id);
-    await client.join(roomName);
-    this.logger.debug(`User ${user.id} joined room: ${roomName}`);
+    socket.emit('connected', { socketId: socket.id });
   }
 
-  async handleDisconnect(client: Socket) {
-    // If client.data.user is set, the user was authenticated. If not, it means the disconnect happened before or during validation.
-    const user = client.data?.user;
-    this.logger.log(`Socket disconnected: ${client.id} | User=${user?.id ?? 'UNAUTHORIZED'}`);
+  handleDisconnect(socket: Socket) {
+    this.logger.log(`Socket ${socket.id} disconnected`);
   }
 
-  getUserRoom(userId: string) {
-    return `user:${userId}`;
-  }
-
-  // method to emit notifications from server-side
   public sendToUser(userId: string, event: string, payload: any) {
-    const roomName = this.getUserRoom(userId);
-    this.server.of('/ws/notifications').to(roomName).emit(event, payload);
-    this.logger.verbose(`Sent event '${event}' to user room: ${roomName}`);
+    const room = `user:${userId}`;
+    this.server.to(room).emit(event, payload);
+    this.logger.debug(`Emitted ${event} to ${room}`);
+  }
+
+  public broadcast(event: string, payload: any) {
+    this.server.emit(event, payload);
   }
 }

@@ -14,6 +14,7 @@ import { WatchHistoryModule } from './module/watch-history/watch-history.module'
 import { UserNotificationPreferenceModule } from './module/user-notification-preference/user-notification-preference.module';
 import { NotificationModule } from './module/notification/notification.module';
 import { SeederService } from './seeder/seeder.service';
+import { ChatModule } from './module/chat/chat.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { SeederService } from './seeder/seeder.service';
       WatchHistoryModule,
       UserNotificationPreferenceModule,
       NotificationModule,
+      ChatModule,
    
   ],
   controllers: [AppController],

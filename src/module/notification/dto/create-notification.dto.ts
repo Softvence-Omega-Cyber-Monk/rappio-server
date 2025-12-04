@@ -26,8 +26,4 @@ export class CreateNotificationDto {
   @IsString()
   contentId?: string;
 
-  @ApiPropertyOptional({ description: 'Mark notification as read or unread', default: false })
-  @IsOptional()
-  @IsBoolean()
-  isRead?: boolean;
 }

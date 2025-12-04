@@ -1,24 +1,25 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { CreateNotificationDto } from './dto/create-notification.dto';
-import { UpdateNotificationDto } from './dto/update-notification.dto';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+
+import { NotificationType, Prisma } from '@prisma/client';
+import { NotificationGateway } from './notification.gateway';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class NotificationService {
-  constructor(private prisma: PrismaService) {}
+  private readonly DB_BATCH_SIZE = 500;
+  private readonly logger = new Logger(NotificationService.name);
 
-  async create(dto: CreateNotificationDto) {
+  constructor(
+    private prisma: PrismaService,
+    private gateway: NotificationGateway
+  ) {}
+
+  async create(dto: Prisma.NotificationCreateInput) {
     return this.prisma.notification.create({ data: dto });
   }
 
   async findAll(userId?: string) {
-    // if (!userId) {
-    //   throw new BadRequestException('ID is required');
-    // }
+    console.log("userId-------->", userId);
     return this.prisma.notification.findMany({
       where: userId ? { userId } : {},
       orderBy: { createdAt: 'desc' },
@@ -26,30 +27,118 @@ export class NotificationService {
   }
 
   async findOne(id: string) {
-    if (!id) {
-      throw new BadRequestException('ID is required');
-    }
-    const notification = await this.prisma.notification.findUnique({ where: { id } });
-    if (!notification) throw new NotFoundException(`Notification with ID ${id} not found`);
-    return notification;
+    return this.prisma.notification.findUnique({ where: { id } });
   }
 
-  async update(id: string, dto: UpdateNotificationDto) {
-     // Ensure exists
-    if (!id) {
-      throw new BadRequestException('ID is required');
-    }
-    return this.prisma.notification.update({
-      where: { id },
-      data: dto,
-    });
+  async update(id: string, data: Partial<Prisma.NotificationUpdateInput>) {
+    return this.prisma.notification.update({ where: { id }, data });
   }
 
   async remove(id: string) {
-     // Ensure exists
-    if (!id) {
-      throw new BadRequestException('ID is required');
-    }
     return this.prisma.notification.delete({ where: { id } });
+  }
+
+  async getUnreadCount(userId: string) {
+    return this.prisma.notification.count({ where: { userId, isRead: false } });
+  }
+
+  // single send respecting user preferences
+  public async sendNotification(userId: string, type: NotificationType, message: string, contentId?: string | null) {
+    if (!userId || !message) throw new BadRequestException('userId and message required');
+    const notification = await this.prisma.notification.create({
+      data: { userId, type, message, contentId: contentId ?? null },
+    });
+
+    try {
+      const pref = await this.prisma.userNotificationPreference.findUnique({ where: { userId } });
+      const map: Record<string, keyof NonNullable<typeof pref>> = {
+        CHANNEL_LIVE: 'channelLive',
+        NEW_VIDEO: 'newVideoUpload',
+        ANNOUNCEMENT: 'platformAnnounce',
+      } as any;
+      const shouldEmit = pref ? (pref[map[type as string]] ?? true) : true;
+      if (shouldEmit) {
+        const unreadCount = await this.getUnreadCount(userId);
+        this.gateway.sendToUser(userId, 'notification', { notification, unreadCount });
+      }
+    } catch (err) {
+      this.logger.warn('Emit failed', err as any);
+    }
+    return notification;
+  }
+
+  // broadcast to many users (createMany + emit lite payload)
+  public async broadcastToUsers(userIds: string[], type: NotificationType, message: string, contentId?: string | null) {
+    if (!userIds || userIds.length === 0) return { created: 0, attemptedEmits: 0 };
+    const rows: Prisma.NotificationCreateManyInput[] = userIds.map((userId) => ({
+      userId,
+      type,
+      message,
+      contentId: contentId ?? null,
+    }));
+
+    // createMany in chunks
+    for (let i = 0; i < rows.length; i += this.DB_BATCH_SIZE) {
+      const chunk = rows.slice(i, i + this.DB_BATCH_SIZE);
+      try {
+        await this.prisma.notification.createMany({ data: chunk, skipDuplicates: true });
+      } catch (err) {
+        this.logger.warn('createMany failed, falling back to individual inserts', err as any);
+        for (const r of chunk) {
+          try {
+            await this.prisma.notification.create({ data: r as any });
+          } catch (e) {
+            this.logger.error('failed insert', e as any);
+          }
+        }
+      }
+    }
+
+    // load prefs
+    const prefs = await this.prisma.userNotificationPreference.findMany({
+      where: { userId: { in: userIds } },
+      select: { userId: true, channelLive: true, newVideoUpload: true, platformAnnounce: true },
+    });
+    const prefMap = new Map(prefs.map((p) => [p.userId, p]));
+
+    let emitted = 0;
+    for (const userId of userIds) {
+      try {
+        const pref = prefMap.get(userId);
+        const shouldEmit = (() => {
+          if (type === 'CHANNEL_LIVE') return pref ? !!pref.channelLive : true;
+          if (type === 'NEW_VIDEO') return pref ? !!pref.newVideoUpload : true;
+          if (type === 'ANNOUNCEMENT') return pref ? !!pref.platformAnnounce : true;
+          return true;
+        })();
+
+        if (!shouldEmit) continue;
+
+        const unreadCount = await this.getUnreadCount(userId);
+
+        const notificationLite = {
+          id: null,
+          userId,
+          type,
+          message,
+          contentId,
+          isRead: false,
+          createdAt: new Date(),
+        };
+
+        this.gateway.sendToUser(userId, 'notification', { notification: notificationLite, unreadCount });
+        emitted++;
+      } catch (err) {
+        this.logger.warn(`Emit to ${userId} failed`, err );
+      }
+    }
+
+    return { created: rows.length, attemptedEmits: emitted };
+  }
+
+  public async broadcastToAll(type: NotificationType, message: string, contentId?: string | null) {
+    const users = await this.prisma.user.findMany({ select: { id: true } });
+    const ids = users.map((u) => u.id);
+    return this.broadcastToUsers(ids, type, message, contentId);
   }
 }
