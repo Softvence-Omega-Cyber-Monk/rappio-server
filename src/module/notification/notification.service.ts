@@ -14,12 +14,21 @@ export class NotificationService {
     private gateway: NotificationGateway
   ) {}
 
+  // async create(dto: Prisma.NotificationCreateInput) {
+  //   return this.prisma.notification.create({ data: dto });
+  // }
   async create(dto: Prisma.NotificationCreateInput) {
-    return this.prisma.notification.create({ data: dto });
+    // 1️ Save notification to DB
+    const notification = await this.prisma.notification.create({ data: dto });
+
+    // 2️ Broadcast to all users in real-time
+    this.gateway.broadcast('notification', notification);
+
+    return notification;
   }
 
   async findAll(userId?: string) {
-    console.log("userId-------->", userId);
+    //console.log("userId-------->", userId);
     return this.prisma.notification.findMany({
       where: userId ? { userId } : {},
       orderBy: { createdAt: 'desc' },
@@ -58,8 +67,8 @@ export class NotificationService {
       } as any;
       const shouldEmit = pref ? (pref[map[type as string]] ?? true) : true;
       if (shouldEmit) {
-        const unreadCount = await this.getUnreadCount(userId);
-        this.gateway.sendToUser(userId, 'notification', { notification, unreadCount });
+        //const unreadCount = await this.getUnreadCount(userId);
+        //this.gateway.sendToUser(userId, 'notification', { notification, unreadCount });
       }
     } catch (err) {
       this.logger.warn('Emit failed', err as any);
@@ -126,8 +135,8 @@ export class NotificationService {
           createdAt: new Date(),
         };
 
-        this.gateway.sendToUser(userId, 'notification', { notification: notificationLite, unreadCount });
-        emitted++;
+        // this.gateway.sendToUser(userId, 'notification', { notification: notificationLite, unreadCount });
+        // emitted++;
       } catch (err) {
         this.logger.warn(`Emit to ${userId} failed`, err );
       }

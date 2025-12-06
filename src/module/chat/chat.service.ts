@@ -6,10 +6,14 @@ import {
 import { CreateChatDto } from './dto/create-chat.dto';
 import { UpdateChatDto } from './dto/update-chat.dto';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ChatGateway } from './chat.gateway';
 
 @Injectable()
 export class ChatService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private gateway: ChatGateway,
+  ) {}
 
   async create(createChatDto: CreateChatDto) {
     try {

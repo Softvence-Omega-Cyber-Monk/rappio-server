@@ -15,6 +15,7 @@ import { UserNotificationPreferenceModule } from './module/user-notification-pre
 import { NotificationModule } from './module/notification/notification.module';
 import { SeederService } from './seeder/seeder.service';
 import { ChatModule } from './module/chat/chat.module';
+import { LiveCommentModule } from './module/live-comment/live-comment.module';
 
 @Module({
   imports: [
@@ -50,7 +51,8 @@ import { ChatModule } from './module/chat/chat.module';
       WatchHistoryModule,
       UserNotificationPreferenceModule,
       NotificationModule,
-      ChatModule,
+      //ChatModule,
+      LiveCommentModule,
    
   ],
   controllers: [AppController],

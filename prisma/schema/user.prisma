@@ -29,6 +29,7 @@ model User {
   notification               Notification[]
   chatMessage                ChatMessage[]
   participants               ChatParticipant[]
+  liveComment                LiveComment[]
 
   @@map("users")
 }

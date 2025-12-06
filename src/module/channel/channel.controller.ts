@@ -60,10 +60,9 @@ export class ChannelController {
       data,
     });
   }
-  /**
-   * GET /channels/validate-stream/:key - Internal/RTMP Server route for stream key validation.
-   * NOTE: This should be heavily secured, ideally not exposed publicly, but placed here for demonstration.
-   */
+  //GET /channels/validate-stream/:key - Internal/RTMP Server route for stream key validation.
+  //NOTE: This should be heavily secured, ideally not exposed publicly, but placed here for demonstration.
+
   @Get('validate-stream/:key')
   @HttpCode(200)
   async validateStreamKey(@Param('key') key: string,@Res() res: Response,) {
