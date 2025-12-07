@@ -16,6 +16,7 @@ import { NotificationModule } from './module/notification/notification.module';
 import { SeederService } from './seeder/seeder.service';
 import { ChatModule } from './module/chat/chat.module';
 import { LiveCommentModule } from './module/live-comment/live-comment.module';
+import { R2WorkerModule } from './module/r2-worker/r2-worker.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { LiveCommentModule } from './module/live-comment/live-comment.module';
       NotificationModule,
       //ChatModule,
       LiveCommentModule,
+      R2WorkerModule,
    
   ],
   controllers: [AppController],

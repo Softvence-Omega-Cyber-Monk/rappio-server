@@ -1,7 +1,7 @@
 {
-  "name": "jonvidz-server",
+  "name": "rappio-server",
   "version": "0.0.1",
-  "description": "Healthcare Operations and Patient Records System - HORPS",
+  "description": "Backend server for the Rappio TV entertainment platform, providing APIs for video streaming, user interaction, live comments, real-time updates, and media management.",
   "author": "Tareq",
   "private": true,
   "license": "UNLICENSED",
@@ -25,6 +25,8 @@
     "schema": "./prisma/schema"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.946.0",
+    "@aws-sdk/s3-request-presigner": "^3.946.0",
     "@nestjs-modules/mailer": "^2.0.2",
     "@nestjs/axios": "^4.0.0",
     "@nestjs/bull": "^11.0.4",
@@ -48,9 +50,11 @@
     "cloudinary": "^1.41.3",
     "csv-parser": "^3.2.0",
     "date-fns": "^4.1.0",
+    "form-data": "^4.0.5",
     "ioredis": "^5.8.2",
     "multer": "^2.0.1",
     "multer-storage-cloudinary": "^4.0.0",
+    "node-fetch": "^3.3.2",
     "p-limit": "^7.2.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
