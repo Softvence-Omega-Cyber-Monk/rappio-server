@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LiveCommentGateway } from './liveComment.gateway';
 import { CreateLiveCommentDto } from './dto/create-live-comment.dto';
@@ -22,6 +22,9 @@ export class LiveCommentService {
 
   // ------- CREATE COMMENT -------
   async create(userId: string, dto: CreateLiveCommentDto) {
+    if (!userId) {
+      throw new BadRequestException('userId is required');
+    }
     const comment = await this.prisma.liveComment.create({
       data: { userId, ...dto },
       include: { user: true },

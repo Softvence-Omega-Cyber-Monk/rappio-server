@@ -1,9 +1,24 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { LiveCommentService } from './live-comment.service';
 import { CreateLiveCommentDto } from './dto/create-live-comment.dto';
 import { UpdateLiveCommentDto } from './dto/update-live-comment.dto';
+import { ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { GetMe } from '../user/dto/request-with-user.interface';
 
-@Controller('live-comment')
+
+@ApiTags('live-comments')
+@Controller('live-comments')
 export class LiveCommentController {
   //constructor(private readonly liveCommentService: LiveCommentService) {}
   constructor(private readonly service: LiveCommentService) {}
@@ -14,16 +29,15 @@ export class LiveCommentController {
     return this.service.getAll(videoId);
   }
 
-  // POST /live-comments
+
+  @UseGuards(JwtAuthGuard)
   @Post()
   create(
-    @Body()
-    body: { userId: string; videoId: string; message: string },
+    @Body() body: CreateLiveCommentDto,
+    @Req() req: GetMe,
   ) {
-    return this.service.create(body.userId, {
-      videoId: body.videoId,
-      message: body.message,
-    });
+    const userId = req.user.id;
+    return this.service.create(userId, body);
   }
 
   // PATCH /live-comments/:id
