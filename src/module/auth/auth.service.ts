@@ -205,7 +205,7 @@ export class AuthService {
     if (!user) throw new NotFoundException('User not found');
 
     const code = generateOtpCode();
-    console.log("code----->", code);
+    //console.log("code----->", code);
     const hashedCode = await hashOtpCode(code);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
     await this.prisma.user.update({where:{email:dto.email},data: { passwordResetToken: hashedCode ,passwordResetExpires: expiresAt }});
