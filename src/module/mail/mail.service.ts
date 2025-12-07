@@ -2,6 +2,12 @@ import { Injectable,Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 //import SMTPTransport from 'nodemailer/lib/smtp-transport';
+type SendMailOptions = {
+  to: string;
+  subject: string;
+  html: string;
+  from?: string;
+};
 
 @Injectable()
 export class MailService {
@@ -15,7 +21,7 @@ export class MailService {
       host: this.config.get('SMTP_HOST'),
       // port: Number(this.config.get('SMTP_PORT')),
       // secure: Number(this.config.get('SMTP_PORT')) === 465,
-      port: 2525, // or 587
+      port: 587, // or 587
       secure: false, // STARTTLS
       auth: {
         user: this.config.get('SMTP_USER'),
@@ -31,14 +37,16 @@ export class MailService {
 
   }
 
-  async sendMail(to: string, subject: string, html: string) {
+  async sendMail(options: SendMailOptions) {
+    console.log('Sending mail...',options);
+    const { to, subject, html } = options;
     const data = await this.transporter.sendMail({
       from:process.env.SMTP_FROM,
       to,
       subject,
       html,
     });
-    console.log(data);
+    //console.log(data);
     this.logger.log(`Code sent to ${to} email.`);
   }
 

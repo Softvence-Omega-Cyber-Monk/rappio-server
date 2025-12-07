@@ -19,14 +19,16 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UserRole, UserStatus } from '@prisma/client';
 import {generateOtpCode,hashOtpCode} from '../../utils/generateOtpCode';
-import { MailerService } from '@nestjs-modules/mailer';
+import { MailService } from '../mail/mail.service';
+//import { MailerService } from '@nestjs-modules/mailer';
+
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-    private mailerService: MailerService,
+    private mailerService: MailService,
   ) {}
 
   async register(dto: RegisterDto){
@@ -205,7 +207,7 @@ export class AuthService {
     if (!user) throw new NotFoundException('User not found');
 
     const code = generateOtpCode();
-    //console.log("code----->", code);
+    console.log("reset password code----->", code);
     const hashedCode = await hashOtpCode(code);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
     await this.prisma.user.update({where:{email:dto.email},data: { passwordResetToken: hashedCode ,passwordResetExpires: expiresAt }});
@@ -214,7 +216,7 @@ export class AuthService {
     await this.mailerService.sendMail({
       to: dto.email,
       subject: 'Reset Password Code',
-      text: `Your OTP code is ${code}. It will expire in 5 minutes.`,
+      html: `Your OTP code is ${code}. It will expire in 5 minutes.`,
     });
     return { message: 'Reset code sent' };
   }
