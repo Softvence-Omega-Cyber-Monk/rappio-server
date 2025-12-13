@@ -1,30 +1,33 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe ,LogLevel} from '@nestjs/common';
-import { setupSwagger } from './swagger/swagger.setup';
+import { ValidationPipe } from '@nestjs/common';
 import * as express from 'express';
 import * as path from 'path';
+import * as fs from 'fs';
 
 async function bootstrap() {
-  const logLevels: LogLevel[] = ['error', 'warn', 'log'];
+  const app = await NestFactory.create(AppModule);
 
-  const app = await NestFactory.create(AppModule, {
-    rawBody: true,
-    bodyParser: true,
-    logger: logLevels,
+  // Ensure directories exist
+  const dirs = [
+    path.join(process.cwd(), 'uploads'),
+    path.join(process.cwd(), 'uploads', 'courses'),
+  ];
+
+  dirs.forEach((dir) => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
   });
 
-  // Good practice to version API Global Prefix:
   app.setGlobalPrefix('api/v1');
 
   app.enableCors({
-    origin: ['http://localhost:5173','https://rappio-tv.netlify.app','*'],
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    origin: true,
     credentials: true,
   });
 
-// 2. Static File Serving (for /uploads)
-  // Get the underlying Express instance and use its static middleware
+  // Serve HLS files
   app.use(
     '/uploads',
     express.static(path.join(process.cwd(), 'uploads')),
@@ -33,21 +36,13 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
       transform: true,
-      skipUndefinedProperties: true,
     }),
   );
 
-
-  setupSwagger(app);
-  await app.listen(process.env.PORT ?? 3000);
-  const port = process.env.PORT ?? 3000;
-
-  // Custom log with port URL
-  const hostname = 'localhost'; // Use '0.0.0.0' for deployment
-  const url = `http://${hostname}:${port}`;
-  console.log(`🚀 Application is running on: ${url}`);
+  const port = 5000;
+  await app.listen(port);
+  console.log(`🚀 Server running on http://localhost:${port}`);
 }
 
 bootstrap();
